@@ -47,5 +47,12 @@
     "email": "adham@gmail.com",
     "passwordHash": "$2a$10$TlaRtES7geDv0PNCFEVJzO9y7yuBitxh3C6ttG88Q00X83smpU4mW",
     "role": "admin"
+  },
+  {
+    "id": 8,
+    "name": "user",
+    "email": "userrole@gmail.com",
+    "passwordHash": "$2a$10$bcNioP4V13mimZw/4g0SF.9S4AybgknD3hT4gnVz.0lQS5fy6XZ1y",
+    "role": "user"
   }
 ]
