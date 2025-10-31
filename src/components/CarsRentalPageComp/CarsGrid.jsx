@@ -49,7 +49,7 @@ function CarsGrid({ allCars }) {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             disabled={currentPage === 1}
-            className="px-4 py-2 rounded-md border bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-md border bg-white text-gray-700 hover:bg-black hover:text-white transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-white disabled:hover:text-gray-700"
           >
             Previous
           </button>
@@ -64,7 +64,7 @@ function CarsGrid({ allCars }) {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             disabled={currentPage >= totalPages}
-            className="px-4 py-2 rounded-md border bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-md border bg-white text-gray-700 hover:bg-black hover:text-white transition-colors duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none disabled:hover:bg-white disabled:hover:text-gray-700"
           >
             Next
           </button>

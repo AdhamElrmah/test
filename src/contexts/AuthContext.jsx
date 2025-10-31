@@ -22,6 +22,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem("user");
     }
   }, [user]);
+
   const signin = async (email, password) => {
     try {
       const data = await signIn(email, password);
