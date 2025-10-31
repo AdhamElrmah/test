@@ -33,5 +33,19 @@
     "email": "ad@asas",
     "passwordHash": "$2a$10$BUwNczZD3mZ4WNrktBxmH..V7.q0ssBTKhzcrHhJ8zwm1fucvKTJS",
     "role": "user"
+  },
+  {
+    "id": 6,
+    "name": "a",
+    "email": "aaaa@gmail.com",
+    "passwordHash": "$2a$10$/6cabJdc5/RR/i8v6MUY3OjocFR0etmMwvqx0V1K4My.BmZlUEUMy",
+    "role": "user"
+  },
+  {
+    "id": 7,
+    "name": "adham ahmed",
+    "email": "adham@gmail.com",
+    "passwordHash": "$2a$10$TlaRtES7geDv0PNCFEVJzO9y7yuBitxh3C6ttG88Q00X83smpU4mW",
+    "role": "admin"
   }
 ]

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import React from "react";
+import { signIn, signUp } from "../lib/getUsers";
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -22,47 +23,39 @@ export const AuthProvider = ({ children }) => {
     }
   }, [user]);
   const signin = async (email, password) => {
-    const res = await fetch("http://localhost:3000/api/auth/signin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to sign in");
+    try {
+      const data = await signIn(email, password);
+      const u = {
+        ...data.user,
+        avatar:
+          data.user.avatar ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${data.user.email}`,
+        token: data.token,
+      };
+      setUser(u);
+      return u;
+    } catch (err) {
+      const e = err?.response?.data || err?.data || {};
+      throw new Error(e.error || err.message || "Failed to sign in");
     }
-    const data = await res.json();
-    const u = {
-      ...data.user,
-      avatar:
-        data.user.avatar ||
-        `https://api.dicebear.com/7.x/initials/svg?seed=${data.user.email}`,
-      token: data.token,
-    };
-    setUser(u);
-    return u;
   };
 
   const signup = async (email, password, name, role) => {
-    const res = await fetch("http://localhost:3000/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name, role }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to sign up");
+    try {
+      const data = await signUp(email, password, name, role);
+      const u = {
+        ...data.user,
+        avatar:
+          data.user.avatar ||
+          `https://api.dicebear.com/7.x/initials/svg?seed=${data.user.email}`,
+        token: data.token,
+      };
+      setUser(u);
+      return u;
+    } catch (err) {
+      const e = err?.response?.data || err?.data || {};
+      throw new Error(e.error || err.message || "Failed to sign up");
     }
-    const data = await res.json();
-    const u = {
-      ...data.user,
-      avatar:
-        data.user.avatar ||
-        `https://api.dicebear.com/7.x/initials/svg?seed=${data.user.email}`,
-      token: data.token,
-    };
-    setUser(u);
-    return u;
   };
 
   const signout = () => {
