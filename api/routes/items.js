@@ -7,6 +7,7 @@ const {
   rentItem,
   returnItem,
   viewRentalHistory,
+  updateItem,
   deleteItem,
 } = require("../controllers/itemController");
 
@@ -34,6 +35,7 @@ router.post("/:id/rent", rentItem);
 // Return a rented item by ID
 router.post("/:id/return", returnItem);
 
+router.put("/:id", updateItem);
 // Delete an item by ID
 router.delete("/:id", deleteItem);
 

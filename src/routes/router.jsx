@@ -7,6 +7,9 @@ import HomePage from "../pages/HomePage";
 import ContactUsPage from "../pages/ContactUsPage";
 import ServicesPage from "../pages/ServicesPage";
 import Error404 from "../pages/Error404";
+import SignIn from "../layouts/auth/SignIn";
+import SignUp from "../layouts/auth/SignUp";
+import AdminDashboard from "../pages/AdminDashboard";
 import { getAllCars, getCarById } from "../lib/getData";
 
 export const router = createBrowserRouter([
@@ -26,6 +29,9 @@ export const router = createBrowserRouter([
       },
       { path: "/Services", element: <ServicesPage /> },
       { path: "/contact-us", element: <ContactUsPage /> },
+      { path: "/signin", element: <SignIn /> },
+      { path: "/signup", element: <SignUp /> },
+      { path: "/admin", element: <AdminDashboard /> },
       {
         path: "/cars",
         children: [
