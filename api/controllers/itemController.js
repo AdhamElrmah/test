@@ -1,7 +1,11 @@
+/* eslint-env node */
+/* global require, exports, __dirname */
+
 // In-memory database
 // Cars DB file helper — use api/cars.json as the persistent database
 const fs = require("fs");
 const path = require("path");
+const { Buffer } = require("buffer");
 const carsPath = path.join(__dirname, "..", "cars.json");
 
 function readCars() {

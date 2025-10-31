@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import ConfirmDialog from "@/components/UI/ConfirmDialog";
+import { Input } from "@/components/UI/input";
+import { Label } from "@/components/UI/label";
+import { getAllCars, createCar, updateCar, deleteCar } from "../lib/getData";
+// import { Input } from "@/components/UI/input";
 
 const defaultCar = {
   id: "2019-fiat-500",
@@ -64,17 +69,15 @@ export default function AdminDashboard() {
   const [msg, setMsg] = useState(null);
   const [items, setItems] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   useEffect(() => {
     // fetch all cars (only when user is present)
     const fetchItems = async () => {
       if (!user) return;
       try {
-        const res = await fetch("http://localhost:3000/api/items/allItems", {
-          headers: { Authorization: `Bearer ${user.token}` },
-        });
-        if (!res.ok) throw new Error("Failed to load items");
-        const data = await res.json();
+        const data = await getAllCars(undefined, user.token);
         setItems(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
@@ -91,20 +94,18 @@ export default function AdminDashboard() {
 
   const refreshItems = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/items/allItems", {
-        headers: { Authorization: `Bearer ${user.token}` },
-      });
-      if (!res.ok) throw new Error("Failed to load items");
-      const data = await res.json();
+      const data = await getAllCars(undefined, user.token);
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
       setMsg({ type: "error", text: err.message });
     }
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMsg(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       // required fields
       if (
@@ -137,21 +138,18 @@ export default function AdminDashboard() {
             : car.additional_features || [],
       };
 
-      const method = selectedId ? "PUT" : "POST";
-      const url = selectedId
-        ? `http://localhost:3000/api/items/${encodeURIComponent(selectedId)}`
-        : "http://localhost:3000/api/items";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to save car");
+      try {
+        if (selectedId) {
+          await updateCar(selectedId, payload, user.token);
+        } else {
+          await createCar(payload, user.token);
+        }
+      } catch (err) {
+        // normalize axios error message if present
+        const msgErr =
+          err?.response?.data?.error || err?.message || "Failed to save car";
+        throw new Error(msgErr);
+      }
 
       setMsg({
         type: "success",
@@ -177,21 +175,19 @@ export default function AdminDashboard() {
         : item.additional_features || "",
     });
     setMsg(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = async (itemId) => {
-    if (!confirm("Delete this car?")) return;
     setMsg(null);
     try {
-      const res = await fetch(
-        `http://localhost:3000/api/items/${encodeURIComponent(itemId)}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${user.token}` },
-        }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Failed to delete car");
+      try {
+        await deleteCar(itemId, user.token);
+      } catch (err) {
+        const msgErr =
+          err?.response?.data?.error || err?.message || "Failed to delete car";
+        throw new Error(msgErr);
+      }
       setMsg({ type: "success", text: "Car deleted" });
       // clear selection if it was the deleted one
       if (selectedId === itemId) {
@@ -205,32 +201,63 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4">Admin Dashboard</h2>
-      <p className="mb-4">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6">
+      <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">
+        Admin Dashboard
+      </h2>
+      <p className="mb-3 sm:mb-4 text-sm sm:text-base">
         Signed in as <strong>{user.email}</strong>
       </p>
 
       {msg && (
         <div
           className={
-            msg.type === "error" ? "text-red-600 mb-4" : "text-green-600 mb-4"
+            msg.type === "error"
+              ? "text-red-600 mb-3 sm:mb-4"
+              : "text-green-600 mb-3 sm:mb-4"
           }
         >
           {msg.text}
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-1">
-          <div className="mb-2 font-medium">All Cars ({items.length})</div>
-          <div className="space-y-2 max-h-[70vh] overflow-auto">
+      {/* Confirm delete dialog */}
+      <ConfirmDialog
+        open={confirmOpen}
+        setOpen={(v) => {
+          setConfirmOpen(v);
+          if (!v) setPendingDeleteId(null);
+        }}
+        title={"Delete car"}
+        description={
+          items.find((i) => i.id === pendingDeleteId)
+            ? `Are you sure you want to delete ${
+                items.find((i) => i.id === pendingDeleteId).make
+              } ${
+                items.find((i) => i.id === pendingDeleteId).model
+              }? This action cannot be undone.`
+            : "Are you sure you want to delete this car? This action cannot be undone."
+        }
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+        }}
+        confirmText={"Delete"}
+        cancelText={"Cancel"}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* All cars (Delete - edit) */}
+        <div className="lg:col-span-1 order-2 lg:order-1">
+          <div className="mb-2 font-medium text-sm sm:text-base">
+            All Cars ({items.length})
+          </div>
+          <div className="space-y-2 max-h-[50vh] lg:max-h-[70vh] overflow-auto">
             {items.map((it) => (
               <div
                 key={it.id}
-                className="p-2 border rounded flex items-center justify-between"
+                className="p-2 sm:p-3 border rounded flex items-center justify-between"
               >
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm">
                   <div className="font-semibold">
                     {it.make} {it.model}{" "}
                     <span className="text-xs text-gray-500">
@@ -242,13 +269,16 @@ export default function AdminDashboard() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleSelect(it)}
-                    className="px-2 py-1 bg-yellow-400 text-xs rounded"
+                    className="px-2 py-1 bg-yellow-400 text-xs rounded hover:bg-yellow-500 transition-colors"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(it.id)}
-                    className="px-2 py-1 bg-red-500 text-white text-xs rounded"
+                    onClick={() => {
+                      setPendingDeleteId(it.id);
+                      setConfirmOpen(true);
+                    }}
+                    className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
                   >
                     Delete
                   </button>
@@ -261,53 +291,81 @@ export default function AdminDashboard() {
               onClick={() => {
                 setSelectedId(null);
                 setCar(defaultCar);
+                window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className="px-3 py-2 bg-blue-600 text-white rounded"
+              className="w-full sm:w-auto px-3 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors"
             >
               New Car
             </button>
           </div>
         </div>
 
-        <div className="col-span-2">
+        {/* Form for (Add - update) Cars */}
+        <div className="lg:col-span-2 order-1 lg:order-2">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium">ID</label>
-                  <input
+                  <Label
+                    htmlFor="car-id"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    ID
+                  </Label>
+                  <Input
+                    id="car-id"
                     value={car.id || ""}
                     onChange={(e) => setCar({ ...car, id: e.target.value })}
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Make</label>
-                  <input
+                  <Label
+                    htmlFor="car-make"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Make
+                  </Label>
+                  <Input
+                    id="car-make"
                     value={car.make || ""}
                     onChange={(e) => setCar({ ...car, make: e.target.value })}
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Model</label>
-                  <input
+                  <Label
+                    htmlFor="car-model"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Model
+                  </Label>
+                  <Input
+                    id="car-model"
                     value={car.model || ""}
                     onChange={(e) => setCar({ ...car, model: e.target.value })}
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Logo URL</label>
-                  <input
+                  <Label
+                    htmlFor="car-logo"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Logo URL
+                  </Label>
+                  <Input
+                    id="car-logo"
                     value={car.logo || ""}
                     onChange={(e) => setCar({ ...car, logo: e.target.value })}
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Year</label>
-                  <input
+                  <Label
+                    htmlFor="car-year"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Year
+                  </Label>
+                  <Input
+                    id="car-year"
                     type="number"
                     value={car.year || ""}
                     onChange={(e) =>
@@ -316,22 +374,32 @@ export default function AdminDashboard() {
                         year: e.target.value ? parseInt(e.target.value) : "",
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Body type</label>
-                  <input
+                  <Label
+                    htmlFor="car-bodytype"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Body type
+                  </Label>
+                  <Input
+                    id="car-bodytype"
                     value={car.body_type || ""}
                     onChange={(e) =>
                       setCar({ ...car, body_type: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Seats</label>
-                  <input
+                  <Label
+                    htmlFor="car-seats"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Seats
+                  </Label>
+                  <Input
+                    id="car-seats"
                     type="number"
                     value={car.seats || ""}
                     onChange={(e) =>
@@ -340,73 +408,96 @@ export default function AdminDashboard() {
                         seats: e.target.value ? parseInt(e.target.value) : "",
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-fuel"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Fuel consumption
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-fuel"
                     value={car.fuel_consumption || ""}
                     onChange={(e) =>
                       setCar({ ...car, fuel_consumption: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3">
-                <label className="block text-sm font-medium">Overview</label>
-                <textarea
+                <Label
+                  htmlFor="car-overview"
+                  className="block text-sm sm:text-base font-semibold mb-1"
+                >
+                  Overview
+                </Label>
+                <Input
+                  as="textarea"
+                  id="car-overview"
                   value={car.overview || ""}
                   onChange={(e) => setCar({ ...car, overview: e.target.value })}
-                  className="w-full border p-2 rounded"
                   rows={4}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4 mt-3">
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-transmission"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Transmission
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-transmission"
                     value={car.transmission || ""}
                     onChange={(e) =>
                       setCar({ ...car, transmission: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-drivetrain"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Drivetrain
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-drivetrain"
                     value={car.drivetrain || ""}
                     onChange={(e) =>
                       setCar({ ...car, drivetrain: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Fuel type</label>
-                  <input
+                  <Label
+                    htmlFor="car-fueltype"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Fuel type
+                  </Label>
+                  <Input
+                    id="car-fueltype"
                     value={car.fuel_type || ""}
                     onChange={(e) =>
                       setCar({ ...car, fuel_type: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-price"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Price per day
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-price"
                     type="number"
                     value={car.price_per_day || ""}
                     onChange={(e) =>
@@ -417,39 +508,50 @@ export default function AdminDashboard() {
                           : "",
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">Currency</label>
-                  <input
+                  <Label
+                    htmlFor="car-currency"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
+                    Currency
+                  </Label>
+                  <Input
+                    id="car-currency"
                     value={car.currency || ""}
                     onChange={(e) =>
                       setCar({ ...car, currency: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-rentalclass"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Rental class
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-rentalclass"
                     value={car.rental_class || ""}
                     onChange={(e) =>
                       setCar({ ...car, rental_class: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-enginetype"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Engine type
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-enginetype"
                     value={(car.engine && car.engine.type) || ""}
                     onChange={(e) =>
                       setCar({
@@ -457,14 +559,17 @@ export default function AdminDashboard() {
                         engine: { ...(car.engine || {}), type: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-enginedisplacement"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Engine displacement
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-enginedisplacement"
                     value={(car.engine && car.engine.displacement) || ""}
                     onChange={(e) =>
                       setCar({
@@ -475,14 +580,17 @@ export default function AdminDashboard() {
                         },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-engineconfig"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Engine configuration
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-engineconfig"
                     value={(car.engine && car.engine.configuration) || ""}
                     onChange={(e) =>
                       setCar({
@@ -493,14 +601,17 @@ export default function AdminDashboard() {
                         },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-enginepower"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Engine power (hp)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-enginepower"
                     type="number"
                     value={(car.engine && car.engine.power_hp) || ""}
                     onChange={(e) =>
@@ -514,17 +625,20 @@ export default function AdminDashboard() {
                         },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-colorexterior"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Color exterior (hex)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-colorexterior"
                     value={(car.colors && car.colors.exterior) || ""}
                     onChange={(e) =>
                       setCar({
@@ -535,14 +649,17 @@ export default function AdminDashboard() {
                         },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-colorinterior"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Color interior (hex)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-colorinterior"
                     value={(car.colors && car.colors.interior) || ""}
                     onChange={(e) =>
                       setCar({
@@ -553,44 +670,53 @@ export default function AdminDashboard() {
                         },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-primaryfeatures"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Primary features (comma separated)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-primaryfeatures"
                     value={car.primary_features || ""}
                     onChange={(e) =>
                       setCar({ ...car, primary_features: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-additionalfeatures"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Additional features (comma separated)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-additionalfeatures"
                     value={car.additional_features || ""}
                     onChange={(e) =>
                       setCar({ ...car, additional_features: e.target.value })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-imgmain"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Image - main
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-imgmain"
                     value={(car.images && car.images.main) || ""}
                     onChange={(e) =>
                       setCar({
@@ -598,14 +724,17 @@ export default function AdminDashboard() {
                         images: { ...(car.images || {}), main: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-imgsub1"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Image - sub1
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-imgsub1"
                     value={(car.images && car.images.sub1) || ""}
                     onChange={(e) =>
                       setCar({
@@ -613,14 +742,17 @@ export default function AdminDashboard() {
                         images: { ...(car.images || {}), sub1: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-imgsub2"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Image - sub2
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-imgsub2"
                     value={(car.images && car.images.sub2) || ""}
                     onChange={(e) =>
                       setCar({
@@ -628,14 +760,17 @@ export default function AdminDashboard() {
                         images: { ...(car.images || {}), sub2: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-imgsub3"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Image - sub3
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-imgsub3"
                     value={(car.images && car.images.sub3) || ""}
                     onChange={(e) =>
                       setCar({
@@ -643,14 +778,17 @@ export default function AdminDashboard() {
                         images: { ...(car.images || {}), sub3: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium">
+                  <Label
+                    htmlFor="car-imgsub4"
+                    className="block text-sm sm:text-base font-semibold mb-1"
+                  >
                     Image - sub4
-                  </label>
-                  <input
+                  </Label>
+                  <Input
+                    id="car-imgsub4"
                     value={(car.images && car.images.sub4) || ""}
                     onChange={(e) =>
                       setCar({
@@ -658,39 +796,46 @@ export default function AdminDashboard() {
                         images: { ...(car.images || {}), sub4: e.target.value },
                       })
                     }
-                    className="w-full border p-2 rounded"
                   />
                 </div>
               </div>
 
               <div className="mt-3">
-                <label className="block text-sm font-medium">
+                <Label
+                  htmlFor="car-rentalconditions"
+                  className="block text-sm font-medium"
+                >
                   Rental conditions
-                </label>
-                <textarea
+                </Label>
+                <Input
+                  as="textarea"
+                  id="car-rentalconditions"
                   value={car.rental_conditions || ""}
                   onChange={(e) =>
                     setCar({ ...car, rental_conditions: e.target.value })
                   }
-                  className="w-full border p-2 rounded"
                   rows={3}
                 />
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded"
+                className="w-full sm:w-auto px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors text-sm sm:text-base"
               >
                 {selectedId ? "Save Changes" : "Add Car"}
               </button>
               <button
                 type="button"
-                onClick={() => setCar(defaultCar)}
-                className="px-4 py-2 bg-gray-200 rounded"
+                onClick={() => {
+                  setSelectedId(null);
+                  setCar(defaultCar);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors text-sm sm:text-base"
               >
-                Reset Defaults
+                Reset Form
               </button>
               {selectedId && (
                 <button
@@ -698,8 +843,9 @@ export default function AdminDashboard() {
                   onClick={() => {
                     setSelectedId(null);
                     setCar(defaultCar);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="px-4 py-2 bg-gray-300 rounded"
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 transition-colors text-sm sm:text-base"
                 >
                   Cancel Edit
                 </button>

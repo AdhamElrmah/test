@@ -1,3 +1,6 @@
+/* eslint-env node */
+/* global require, module */
+
 const express = require("express");
 const { signup, signin } = require("../controllers/authController");
 

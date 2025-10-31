@@ -26,5 +26,12 @@
     "email": "user@gmail.com",
     "passwordHash": "$2a$10$B8.E4p4g4FZaqx2xXodx2udL4VMS0KT34XLvBhMtVnggNvfeKlO2e",
     "role": "user"
+  },
+  {
+    "id": 5,
+    "name": "asd",
+    "email": "ad@asas",
+    "passwordHash": "$2a$10$BUwNczZD3mZ4WNrktBxmH..V7.q0ssBTKhzcrHhJ8zwm1fucvKTJS",
+    "role": "user"
   }
 ]

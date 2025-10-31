@@ -1,6 +1,10 @@
+/* eslint-env node */
+/* global require, exports, __dirname */
+
 const fs = require("fs");
 const path = require("path");
 const bcrypt = require("bcryptjs");
+const { Buffer } = require("buffer");
 
 const usersPath = path.join(__dirname, "..", "users.json");
 
@@ -8,7 +12,7 @@ function readUsers() {
   if (!fs.existsSync(usersPath)) return [];
   try {
     return JSON.parse(fs.readFileSync(usersPath, "utf8") || "[]");
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -43,7 +47,7 @@ exports.signup = (req, res) => {
 
   // Return a simple token (base64 of email) for demo purposes
   const token = Buffer.from(email).toString("base64");
-  const { passwordHash: ph, ...publicUser } = newUser;
+  const { passwordHash: _passwordHash, ...publicUser } = newUser;
   res.status(201).json({ user: publicUser, token });
 };
 
@@ -61,6 +65,6 @@ exports.signin = (req, res) => {
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
   const token = Buffer.from(email).toString("base64");
-  const { passwordHash: ph, ...publicUser } = user;
+  const { passwordHash: _passwordHash, ...publicUser } = user;
   res.status(200).json({ user: publicUser, token });
 };
